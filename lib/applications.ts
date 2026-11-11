@@ -20,20 +20,47 @@ export type StoredApplication = {
   emailError: string;
 };
 
-const DIRECTORY = path.join(process.cwd(), "data", "applications");
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DIRECTORIES = [
+  path.join(process.cwd(), "data", "applications"),
+  path.join("/tmp", "zelouth-applications"),
+];
 
 export class ApplicationInputError extends Error {}
 
-function relativeFile(id: string) {
+let writableDirectory: string | null = null;
+
+function assertId(id: string) {
+  if (!ID_PATTERN.test(id)) throw new ApplicationInputError("That application could not be found.");
+}
+
+function fileIn(directory: string, id: string) {
+  const file = path.join(directory, `${id}.json`);
+  if (!file.startsWith(directory + path.sep)) throw new ApplicationInputError("That application could not be found.");
+  return file;
+}
+
+function labelFor(directory: string, id: string) {
+  if (directory.startsWith("/tmp")) return `tmp/zelouth-applications/${id}.json`;
   return `data/applications/${id}.json`;
 }
 
-function absoluteFile(id: string) {
-  if (!ID_PATTERN.test(id)) throw new ApplicationInputError("That application could not be found.");
-  const file = path.join(DIRECTORY, `${id}.json`);
-  if (!file.startsWith(DIRECTORY + path.sep)) throw new ApplicationInputError("That application could not be found.");
-  return file;
+async function directoryForWrite() {
+  if (writableDirectory) return writableDirectory;
+  let lastError: unknown;
+  for (const directory of DIRECTORIES) {
+    try {
+      await mkdir(directory, { recursive: true });
+      const probe = path.join(directory, ".write-probe");
+      await writeFile(probe, "ok");
+      await unlink(probe);
+      writableDirectory = directory;
+      return directory;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("No writable folder for applications.");
 }
 
 function clean(value: unknown, max: number) {
@@ -73,23 +100,29 @@ export function parseApplication(
 }
 
 export async function readApplication(id: string): Promise<StoredApplication | null> {
-  try {
-    const raw = await readFile(absoluteFile(id), "utf8");
-    const parsed = JSON.parse(raw) as StoredApplication;
-    if (!parsed || parsed.id !== id || !parsed.email) return null;
-    return { ...parsed, file: relativeFile(id) };
-  } catch (error) {
-    if (error instanceof ApplicationInputError) throw error;
-    return null;
+  assertId(id);
+  for (const directory of DIRECTORIES) {
+    try {
+      const raw = await readFile(fileIn(directory, id), "utf8");
+      const parsed = JSON.parse(raw) as StoredApplication;
+      if (!parsed || parsed.id !== id || !parsed.email) return null;
+      return { ...parsed, file: labelFor(directory, id) };
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code === "ENOENT" || code === "ENOTDIR") continue;
+      if (error instanceof ApplicationInputError) throw error;
+    }
   }
+  return null;
 }
 
 export async function saveApplication(body: unknown): Promise<StoredApplication> {
   const draft = parseApplication(body);
+  const directory = await directoryForWrite();
   const record: StoredApplication = {
     ...draft,
     savedAt: new Date().toISOString(),
-    file: relativeFile(draft.id),
+    file: labelFor(directory, draft.id),
     emailed: false,
     inbox: companyInbox,
     emailError: "",
@@ -104,20 +137,27 @@ export async function recordDelivery(
 ): Promise<StoredApplication> {
   const current = await readApplication(id);
   if (!current) throw new ApplicationInputError("That application could not be found.");
-  const next: StoredApplication = { ...current, ...delivery, file: relativeFile(id) };
+  const next: StoredApplication = { ...current, ...delivery };
   await writeRecord(next);
   return next;
 }
 
 async function writeRecord(record: StoredApplication) {
-  await mkdir(DIRECTORY, { recursive: true });
-  await writeFile(absoluteFile(record.id), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  const directory = await directoryForWrite();
+  record.file = labelFor(directory, record.id);
+  await mkdir(directory, { recursive: true });
+  await writeFile(fileIn(directory, record.id), `${JSON.stringify(record, null, 2)}\n`, "utf8");
 }
 
 export async function deleteApplication(id: string) {
-  try {
-    await unlink(absoluteFile(id));
-  } catch (error) {
-    if (error instanceof ApplicationInputError) throw error;
+  assertId(id);
+  for (const directory of DIRECTORIES) {
+    try {
+      await unlink(fileIn(directory, id));
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code === "ENOENT" || code === "ENOTDIR") continue;
+      if (error instanceof ApplicationInputError) throw error;
+    }
   }
 }

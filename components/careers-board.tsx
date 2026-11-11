@@ -233,7 +233,7 @@ export function CareersBoard() {
               <p className="mt-2 text-sm text-neutral-700">
                 {saved.emailed
                   ? `Sent to ${saved.inbox || companyInbox}.`
-                  : saved.emailError || `Not sent to ${companyInbox} yet.`}
+                  : `Saved for ${saved.inbox || companyInbox}. The role, name, email, city, and note are in the file above.`}
               </p>
               {saved.note ? <p className="mt-3 text-sm text-neutral-600">{saved.note}</p> : null}
               <button

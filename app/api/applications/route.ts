@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     if (error instanceof SyntaxError) {
       return Response.json({ error: "The application could not be read." }, { status: 400 });
     }
+    console.error("Career application save failed", error instanceof Error ? error.message : error);
     return errorResponse(error);
   }
 }
