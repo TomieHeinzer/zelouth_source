@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { nav } from "@/lib/content";
+import { companyInbox } from "@/lib/inbox";
 import { Mark } from "./mark";
 
 export function SiteFooter() {
@@ -36,6 +37,10 @@ export function SiteFooter() {
 
           <p className="text-sm leading-6 xl:text-right">
             Zelouth
+            <br />
+            <a href={`mailto:${companyInbox}`} className="hover:text-accent">
+              {companyInbox}
+            </a>
             <br />
             Remote-first
             <br />

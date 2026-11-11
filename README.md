@@ -24,11 +24,11 @@ Open [http://127.0.0.1:4179](http://127.0.0.1:4179).
 ## Pages
 
 - `/` — mission, products, news, research, team, investors
-- `/careers` — open roles and a browser-local application note
+- `/careers` — open roles and an application saved on the server
 - `/sources` — whitepaper and roadmap
 - `/whitepaper` — summary, protocol, tokenomics, and Proof of Active Agent
 - `/roadmap` — Emerald, Cref Marketplace, and the BLOS flywheel
 - `/news` — journal
 - `/privacy` and `/terms`
 
-Career applications are saved in `localStorage` under `zelouth-career-applications`. They are not sent anywhere.
+Career applications are written to `data/applications/<id>.json` and emailed to `info@zelouth.xyz`. Delivery uses `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and optional `SMTP_FROM` and `SMTP_PORT` (587 by default). The browser only remembers the application id so the form can load that file again.

@@ -2,16 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { roles, teams, type Role } from "@/lib/content";
+import { companyInbox } from "@/lib/inbox";
 
 const STORAGE_KEY = "zelouth-career-applications";
 
 type Application = {
+  id: string;
+  savedAt: string;
   roleId: string;
   role: string;
+  team: string;
   name: string;
   email: string;
   place: string;
   note: string;
+  file: string;
+  emailed?: boolean;
+  inbox?: string;
+  emailError?: string;
 };
 
 const fieldClass =
@@ -27,6 +35,8 @@ export function CareersBoard() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Application | null>(null);
   const [ready, setReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const visible = useMemo(
     () => roles.filter((role) => team === "All" || role.team === team),
@@ -36,14 +46,22 @@ export function CareersBoard() {
   const active: Role = visible.find((role) => role.id === roleId) ?? visible[0] ?? roles[0];
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
+    const id = window.localStorage.getItem(STORAGE_KEY);
+    if (!id || id.startsWith("{")) {
+      if (id) window.localStorage.removeItem(STORAGE_KEY);
       setReady(true);
       return;
     }
-    try {
-      const parsed = JSON.parse(raw) as Application;
-      if (parsed?.roleId && parsed?.email) {
+
+    let cancelled = false;
+    fetch(`/api/applications?id=${encodeURIComponent(id)}`)
+      .then(async (response) => {
+        if (!response.ok) {
+          window.localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+        const parsed = (await response.json()) as Application;
+        if (cancelled || !parsed?.roleId || !parsed?.email) return;
         setSaved(parsed);
         const role = roles.find((item) => item.id === parsed.roleId);
         if (role) {
@@ -54,11 +72,17 @@ export function CareersBoard() {
         setEmail(parsed.email ?? "");
         setPlace(parsed.place ?? "");
         setNote(parsed.note ?? "");
-      }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-    setReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setSaveError("The saved application could not be loaded from the server.");
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function selectTeam(next: (typeof teams)[number]) {
@@ -69,29 +93,64 @@ export function CareersBoard() {
     }
   }
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     const nextErrors: Record<string, string> = {};
     if (name.trim().length < 2) nextErrors.name = "Add your name.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) nextErrors.email = "Add a real email.";
     setErrors(nextErrors);
+    setSaveError("");
     if (Object.keys(nextErrors).length > 0) return;
 
-    const application: Application = {
-      roleId: active.id,
-      role: active.title,
-      name: name.trim(),
-      email: email.trim(),
-      place: place.trim(),
-      note: note.trim(),
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(application));
-    setSaved(application);
+    setSaving(true);
+    try {
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: saved?.id,
+          roleId: active.id,
+          name,
+          email,
+          place,
+          note,
+        }),
+      });
+      const body = (await response.json()) as Application & { error?: string };
+      if (!response.ok || !body.id) {
+        setSaveError(body.error || "Could not save the application.");
+        return;
+      }
+      window.localStorage.setItem(STORAGE_KEY, body.id);
+      setSaved(body);
+      setName(body.name);
+      setEmail(body.email);
+      setPlace(body.place);
+      setNote(body.note);
+    } catch {
+      setSaveError("Could not reach the server. Try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function clearApplication() {
+  async function clearApplication() {
+    const id = saved?.id;
+    setSaveError("");
+    if (id) {
+      try {
+        await fetch(`/api/applications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      } catch {
+        setSaveError("Could not remove the saved file. Try again.");
+        return;
+      }
+    }
     window.localStorage.removeItem(STORAGE_KEY);
     setSaved(null);
+    setName("");
+    setEmail("");
+    setPlace("");
+    setNote("");
   }
 
   if (!ready) {
@@ -165,10 +224,16 @@ export function CareersBoard() {
         <div className="mt-8 border-t border-ink/10 pt-6">
           {saved ? (
             <div className="mb-6 rounded-lg border border-ink/10 bg-sand p-4" role="status">
-              <h3 className="font-display text-lg font-medium">Note saved on this browser</h3>
+              <h3 className="font-display text-lg font-medium">Application saved on the server</h3>
               <p className="mt-2 text-sm leading-6 text-neutral-700">
                 {saved.name} · {saved.email}
-                {saved.place ? ` · ${saved.place}` : ""}. Saved for {saved.role}. Nothing was sent to a server.
+                {saved.place ? ` · ${saved.place}` : ""}. Saved for {saved.role}.
+              </p>
+              <p className="mt-2 text-sm text-neutral-600">File: {saved.file}</p>
+              <p className="mt-2 text-sm text-neutral-700">
+                {saved.emailed
+                  ? `Sent to ${saved.inbox || companyInbox}.`
+                  : saved.emailError || `Not sent to ${companyInbox} yet.`}
               </p>
               {saved.note ? <p className="mt-3 text-sm text-neutral-600">{saved.note}</p> : null}
               <button
@@ -183,8 +248,8 @@ export function CareersBoard() {
           <form onSubmit={submit} noValidate>
               <h3 className="font-display text-xl font-medium">Apply for {active.title}</h3>
               <p className="mt-1 text-sm text-neutral-600">
-                Tell us who you are. The note stays in this browser.
-                {saved ? ` You already applied for ${saved.role}. Submitting here replaces that note.` : ""}
+                Tell us who you are. Save application stores your role, name, email, city, and note, then emails that file to {companyInbox}.
+                {saved ? ` You already applied for ${saved.role}. Saving again updates that file.` : ""}
               </p>
               <label className="mt-4 block text-sm font-medium" htmlFor="applicant-name">
                 Name
@@ -246,11 +311,17 @@ export function CareersBoard() {
                 placeholder="A contract, a model, or a product you have shipped"
               />
 
+              {saveError ? (
+                <p className="mt-4 text-sm text-red-700" role="alert">
+                  {saveError}
+                </p>
+              ) : null}
               <button
                 type="submit"
-                className="mt-5 rounded-md border border-ink bg-ink px-6 py-3 text-sm font-semibold text-cream transition hover:bg-accent"
+                disabled={saving}
+                className="mt-5 rounded-md border border-ink bg-ink px-6 py-3 text-sm font-semibold text-cream transition hover:bg-accent disabled:cursor-wait disabled:opacity-70"
               >
-                Save application
+                {saving ? "Saving…" : "Save application"}
               </button>
             </form>
         </div>

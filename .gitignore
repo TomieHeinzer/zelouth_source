@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# career applications saved from the site
+/data/applications/*
+!/data/applications/.gitkeep
