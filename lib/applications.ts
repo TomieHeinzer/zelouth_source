@@ -40,7 +40,10 @@ function clean(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-export function parseApplication(body: unknown, existingId?: string): Omit<StoredApplication, "savedAt" | "file"> {
+export function parseApplication(
+  body: unknown,
+  existingId?: string,
+): Omit<StoredApplication, "savedAt" | "file" | "emailed" | "inbox" | "emailError"> {
   const input = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   const roleId = clean(input.roleId, 80);
   const role = roles.find((item) => item.id === roleId);
