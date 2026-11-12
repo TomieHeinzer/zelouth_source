@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, Syne } from "next/font/google";
+import localFont from "next/font/local";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "../fonts/inter-latin.woff2",
   variable: "--font-inter",
+  weight: "100 900",
+  display: "swap",
 });
 
-const syne = Syne({
-  subsets: ["latin"],
+const syne = localFont({
+  src: "../fonts/syne-latin.woff2",
   variable: "--font-syne",
-  weight: ["500", "600", "700"],
+  weight: "400 800",
+  display: "swap",
 });
 
 function resolveSiteUrl() {
