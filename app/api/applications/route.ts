@@ -2,6 +2,10 @@ import { ApplicationInputError, deleteApplication, readApplication, recordDelive
 import { companyInbox } from "@/lib/inbox";
 import { sendApplicationEmail } from "@/lib/mail";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 15;
+
 function errorResponse(error: unknown) {
   if (error instanceof ApplicationInputError) {
     return Response.json({ error: error.message }, { status: 400 });

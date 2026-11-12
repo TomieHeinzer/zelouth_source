@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import path from "path";
+import { BlobNotFoundError, del, get, put } from "@vercel/blob";
 import { roles } from "@/lib/content";
 import { companyInbox } from "@/lib/inbox";
 
@@ -21,10 +22,17 @@ export type StoredApplication = {
 };
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const DIRECTORIES = [
-  path.join(process.cwd(), "data", "applications"),
-  path.join("/tmp", "zelouth-applications"),
-];
+const DIRECTORIES = process.env.VERCEL
+  ? [path.join("/tmp", "zelouth-applications")]
+  : [path.join(process.cwd(), "data", "applications"), path.join("/tmp", "zelouth-applications")];
+
+function blobReady() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+}
+
+function blobPath(id: string) {
+  return `applications/${id}.json`;
+}
 
 export class ApplicationInputError extends Error {}
 
@@ -99,8 +107,32 @@ export function parseApplication(
   };
 }
 
+async function readBlob(id: string): Promise<StoredApplication | null> {
+  try {
+    const result = await get(blobPath(id), { access: "private", useCache: false });
+    if (!result || result.statusCode !== 200) return null;
+    const parsed = JSON.parse(await new Response(result.stream).text()) as StoredApplication;
+    if (!parsed || parsed.id !== id || !parsed.email) return null;
+    return { ...parsed, file: blobPath(id) };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) return null;
+    throw error;
+  }
+}
+
+async function writeBlob(record: StoredApplication) {
+  record.file = blobPath(record.id);
+  await put(blobPath(record.id), `${JSON.stringify(record, null, 2)}\n`, {
+    access: "private",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+  });
+}
+
 export async function readApplication(id: string): Promise<StoredApplication | null> {
   assertId(id);
+  if (blobReady()) return readBlob(id);
   for (const directory of DIRECTORIES) {
     try {
       const raw = await readFile(fileIn(directory, id), "utf8");
@@ -118,11 +150,10 @@ export async function readApplication(id: string): Promise<StoredApplication | n
 
 export async function saveApplication(body: unknown): Promise<StoredApplication> {
   const draft = parseApplication(body);
-  const directory = await directoryForWrite();
   const record: StoredApplication = {
     ...draft,
     savedAt: new Date().toISOString(),
-    file: labelFor(directory, draft.id),
+    file: blobReady() ? blobPath(draft.id) : "",
     emailed: false,
     inbox: companyInbox,
     emailError: "",
@@ -143,6 +174,10 @@ export async function recordDelivery(
 }
 
 async function writeRecord(record: StoredApplication) {
+  if (blobReady()) {
+    await writeBlob(record);
+    return;
+  }
   const directory = await directoryForWrite();
   record.file = labelFor(directory, record.id);
   await mkdir(directory, { recursive: true });
@@ -151,6 +186,15 @@ async function writeRecord(record: StoredApplication) {
 
 export async function deleteApplication(id: string) {
   assertId(id);
+  if (blobReady()) {
+    try {
+      await del(blobPath(id));
+    } catch (error) {
+      if (error instanceof BlobNotFoundError) return;
+      throw error;
+    }
+    return;
+  }
   for (const directory of DIRECTORIES) {
     try {
       await unlink(fileIn(directory, id));

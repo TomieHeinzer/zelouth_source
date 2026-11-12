@@ -31,4 +31,17 @@ Open [http://127.0.0.1:4179](http://127.0.0.1:4179).
 - `/news` — journal
 - `/privacy` and `/terms`
 
-Career applications are written to `data/applications/<id>.json` and emailed to `info@zelouth.xyz`. Delivery uses `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and optional `SMTP_FROM` and `SMTP_PORT` (587 by default). The browser only remembers the application id so the form can load that file again.
+Career applications are emailed to `info@zelouth.xyz` through Namecheap Private Email (`smtp.privateemail.com`, port 465). The mailbox login is `info@zelouth.xyz`. Set `SMTP_PASSWORD` to that mailbox password so Nodemailer can send. `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_FROM` can override those defaults. The browser only remembers the application id so the form can load that file again.
+
+Locally, the file is written to `data/applications/<id>.json`. On Vercel, connect a Blob store to the project. Vercel then provides `BLOB_READ_WRITE_TOKEN`, and each application is stored as a private blob. Without that store, Vercel can still accept the form, but its disk is temporary.
+
+## Deploy on Vercel
+
+Import this repository. Vercel should detect Next.js. Use Node.js 22, install with `npm install`, and build with `next build`. The site root is the repository root.
+
+Set these environment variables on the Vercel project:
+
+- `SMTP_PASSWORD` — password for the `info@zelouth.xyz` mailbox
+- `NEXT_PUBLIC_SITE_URL` — the public address, such as `https://zelouth.xyz`
+
+Then open Storage, create a Blob store, and connect it to this project.

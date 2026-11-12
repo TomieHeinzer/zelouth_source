@@ -1,6 +1,9 @@
+import dns from "dns";
 import nodemailer from "nodemailer";
 import type { StoredApplication } from "@/lib/applications";
 import { companyInbox } from "@/lib/inbox";
+
+dns.setDefaultResultOrder("ipv4first");
 
 export type MailDelivery = {
   emailed: boolean;
@@ -9,11 +12,11 @@ export type MailDelivery = {
 };
 
 function mailConfig() {
-  const host = process.env.SMTP_HOST?.trim() ?? "";
-  const user = process.env.SMTP_USER?.trim() ?? "";
+  const host = process.env.SMTP_HOST?.trim() || "smtp.privateemail.com";
+  const user = process.env.SMTP_USER?.trim() || companyInbox;
   const pass = process.env.SMTP_PASSWORD ?? "";
-  const port = Number(process.env.SMTP_PORT || 587);
-  const from = process.env.SMTP_FROM?.trim() || user || companyInbox;
+  const port = Number(process.env.SMTP_PORT || 465);
+  const from = process.env.SMTP_FROM?.trim() || companyInbox;
   return { host, user, pass, port, from, ready: Boolean(host && user && pass && Number.isFinite(port)) };
 }
 
@@ -27,7 +30,7 @@ export async function sendApplicationEmail(application: StoredApplication): Prom
     return {
       emailed: false,
       inbox: companyInbox,
-      emailError: `Saved on the server. The mailbox for ${companyInbox} is not connected yet.`,
+      emailError: `Saved on the server. ${companyInbox} did not receive it because the mailbox password is not set.`,
     };
   }
 
@@ -36,6 +39,9 @@ export async function sendApplicationEmail(application: StoredApplication): Prom
     port: config.port,
     secure: config.port === 465,
     auth: { user: config.user, pass: config.pass },
+    connectionTimeout: 8_000,
+    greetingTimeout: 8_000,
+    socketTimeout: 8_000,
   });
 
   await transporter.sendMail({

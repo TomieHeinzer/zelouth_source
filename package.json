@@ -2,13 +2,17 @@
   "name": "zelouth",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev --turbopack -p 4179",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@vercel/blob": "^2.9.0",
     "next": "15.5.29",
     "nodemailer": "^10.5.0",
     "react": "19.1.0",
