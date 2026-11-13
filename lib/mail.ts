@@ -1,6 +1,6 @@
 import dns from "dns";
 import nodemailer from "nodemailer";
-import type { StoredApplication } from "@/lib/applications";
+import { readResume, type StoredApplication } from "@/lib/applications";
 import { companyInbox } from "@/lib/inbox";
 
 dns.setDefaultResultOrder("ipv4first");
@@ -44,6 +44,7 @@ export async function sendApplicationEmail(application: StoredApplication): Prom
     socketTimeout: 8_000,
   });
 
+  const resume = await readResume(application);
   await transporter.sendMail({
     from: config.from,
     to: companyInbox,
@@ -58,9 +59,13 @@ export async function sendApplicationEmail(application: StoredApplication): Prom
       `Email: ${application.email}`,
       `City: ${application.place || "—"}`,
       `Note: ${application.note || "—"}`,
+      `Document: ${application.resumeName || "—"}`,
       "",
       `File: ${application.file}`,
     ].join("\n"),
+    attachments: resume
+      ? [{ filename: resume.filename, content: resume.content, contentType: resume.contentType }]
+      : undefined,
   });
 
   return { emailed: true, inbox: companyInbox, emailError: "" };

@@ -17,6 +17,9 @@ type Application = {
   place: string;
   note: string;
   file: string;
+  resumeName?: string;
+  resumeType?: string;
+  resumeFile?: string;
   emailed?: boolean;
   inbox?: string;
   emailError?: string;
@@ -32,6 +35,7 @@ export function CareersBoard() {
   const [email, setEmail] = useState("");
   const [place, setPlace] = useState("");
   const [note, setNote] = useState("");
+  const [resume, setResume] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Application | null>(null);
   const [ready, setReady] = useState(false);
@@ -93,28 +97,41 @@ export function CareersBoard() {
     }
   }
 
+  function resumeProblem(file: File | null) {
+    if (!file) return saved?.resumeName ? "" : "Add a PDF or Word document.";
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith(".pdf") && !lower.endsWith(".doc") && !lower.endsWith(".docx")) {
+      return "Use a PDF, DOC, or DOCX file.";
+    }
+    if (file.size === 0) return "That document is empty.";
+    if (file.size > 4 * 1024 * 1024) return "The document must be 4 MB or smaller.";
+    return "";
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const nextErrors: Record<string, string> = {};
     if (name.trim().length < 2) nextErrors.name = "Add your name.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) nextErrors.email = "Add a real email.";
+    const documentError = resumeProblem(resume);
+    if (documentError) nextErrors.resume = documentError;
     setErrors(nextErrors);
     setSaveError("");
     if (Object.keys(nextErrors).length > 0) return;
 
     setSaving(true);
     try {
+      const form = new FormData();
+      if (saved?.id) form.set("id", saved.id);
+      form.set("roleId", active.id);
+      form.set("name", name);
+      form.set("email", email);
+      form.set("place", place);
+      form.set("note", note);
+      if (resume) form.set("resume", resume);
       const response = await fetch("/api/applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: saved?.id,
-          roleId: active.id,
-          name,
-          email,
-          place,
-          note,
-        }),
+        body: form,
       });
       const body = (await response.json()) as Application & { error?: string };
       if (!response.ok || !body.id) {
@@ -151,6 +168,7 @@ export function CareersBoard() {
     setEmail("");
     setPlace("");
     setNote("");
+    setResume(null);
   }
 
   if (!ready) {
@@ -229,11 +247,13 @@ export function CareersBoard() {
                 {saved.name} · {saved.email}
                 {saved.place ? ` · ${saved.place}` : ""}. Saved for {saved.role}.
               </p>
-              <p className="mt-2 text-sm text-neutral-600">File: {saved.file}</p>
+              <p className="mt-2 text-sm text-neutral-600">
+                Document: {saved.resumeName || "No document saved"}
+              </p>
               <p className="mt-2 text-sm text-neutral-700">
                 {saved.emailed
-                  ? `Sent to ${saved.inbox || companyInbox}.`
-                  : `Saved for ${saved.inbox || companyInbox}. The role, name, email, city, and note are in the file above.`}
+                  ? `Sent to ${saved.inbox || companyInbox} with the document attached.`
+                  : `Saved for ${saved.inbox || companyInbox}. The role, name, email, city, note, and document are stored with this application.`}
               </p>
               {saved.note ? <p className="mt-3 text-sm text-neutral-600">{saved.note}</p> : null}
               <button
@@ -248,8 +268,8 @@ export function CareersBoard() {
           <form onSubmit={submit} noValidate>
               <h3 className="font-display text-xl font-medium">Apply for {active.title}</h3>
               <p className="mt-1 text-sm text-neutral-600">
-                Tell us who you are. Save application stores your role, name, email, city, and note, then emails that file to {companyInbox}.
-                {saved ? ` You already applied for ${saved.role}. Saving again updates that file.` : ""}
+                Tell us who you are and attach a PDF or Word document. Save application stores your details and emails them to {companyInbox}.
+                {saved ? ` You already applied for ${saved.role}. Saving again updates that application.` : ""}
               </p>
               <label className="mt-4 block text-sm font-medium" htmlFor="applicant-name">
                 Name
@@ -299,6 +319,31 @@ export function CareersBoard() {
                 onChange={(event) => setPlace(event.target.value)}
                 placeholder="Where you work from"
               />
+
+              <label className="mt-4 block text-sm font-medium" htmlFor="applicant-resume">
+                Document <span className="font-normal text-neutral-500">PDF, DOC, or DOCX, up to 4 MB</span>
+              </label>
+              <input
+                id="applicant-resume"
+                className="mt-1 block w-full text-sm text-ink file:mr-3 file:rounded-md file:border file:border-ink/20 file:bg-sand file:px-3 file:py-2 file:text-sm file:font-medium"
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(event) => setResume(event.target.files?.[0] ?? null)}
+                aria-invalid={errors.resume ? true : undefined}
+                aria-describedby={errors.resume ? "applicant-resume-error" : undefined}
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                {resume
+                  ? resume.name
+                  : saved?.resumeName
+                    ? `Current document: ${saved.resumeName}. Choose a file only to replace it.`
+                    : "Choose the document to send with this application."}
+              </p>
+              {errors.resume ? (
+                <p id="applicant-resume-error" className="mt-1 text-xs text-red-700">
+                  {errors.resume}
+                </p>
+              ) : null}
 
               <label className="mt-4 block text-sm font-medium" htmlFor="applicant-note">
                 Note <span className="font-normal text-neutral-500">(optional)</span>

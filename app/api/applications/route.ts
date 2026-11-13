@@ -1,4 +1,4 @@
-import { ApplicationInputError, deleteApplication, readApplication, recordDelivery, saveApplication } from "@/lib/applications";
+import { ApplicationInputError, deleteApplication, readApplication, recordDelivery, saveApplication, validateResume } from "@/lib/applications";
 import { companyInbox } from "@/lib/inbox";
 import { sendApplicationEmail } from "@/lib/mail";
 
@@ -24,10 +24,34 @@ export async function GET(request: Request) {
   }
 }
 
+async function readSubmission(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.includes("multipart/form-data")) {
+    return { body: await request.json(), resume: null as ReturnType<typeof validateResume> | null };
+  }
+  const form = await request.formData();
+  const upload = form.get("resume");
+  let resume: ReturnType<typeof validateResume> | null = null;
+  if (upload instanceof File && upload.size > 0) {
+    resume = validateResume(upload.name, Buffer.from(await upload.arrayBuffer()));
+  }
+  return {
+    body: {
+      id: form.get("id"),
+      roleId: form.get("roleId"),
+      name: form.get("name"),
+      email: form.get("email"),
+      place: form.get("place"),
+      note: form.get("note"),
+    },
+    resume,
+  };
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const application = await saveApplication(body);
+    const { body, resume } = await readSubmission(request);
+    const application = await saveApplication(body, resume);
     try {
       const delivery = await sendApplicationEmail(application);
       return Response.json(await recordDelivery(application.id, delivery));
