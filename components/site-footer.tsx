@@ -44,12 +44,12 @@ export function SiteFooter() {
             <br />
             Remote-first
             <br />
-            Since 2021
+            Since 2025
           </p>
         </div>
 
         <div className="mt-12 text-center text-sm">
-          <p>© 2021–2026 Zelouth</p>
+          <p>© 2025–2026 Zelouth</p>
           <p className="mt-1">
             <Link href="/privacy" className="hover:text-accent">
               Privacy Policy

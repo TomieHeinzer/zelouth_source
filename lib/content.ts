@@ -153,33 +153,10 @@ export type Person = {
 export const team: Person[] = [
   {
     name: "David Minarsch",
-    role: "Co-founder, CEO",
+    role: "CEO and Co-founder",
     photo: "/images/team/portrait-01.jpg",
     bio: "He led the team that built the first framework for multi-agent systems in the distributed-ledger space. He has founding experience through Entrepreneur First and a PhD in applied game theory from the University of Cambridge.",
   },
-  {
-    name: "David Galindo",
-    role: "Co-founder, CTO",
-    photo: "/images/team/portrait-02.jpg",
-    bio: "A cryptographer. He served as an associate professor of computer security at the University of Birmingham and holds the record for the number of votes cast in a live digital ballot.",
-  },
-  {
-    name: "Gemma",
-    role: "COO",
-    photo: "/images/team/portrait-03.jpg",
-    bio: "A founder who has been starting and advising companies and charities since 2015. She was selected for Jumpstart’s top 1% of early-career people in the UK.",
-  },
-  { name: "Adamantios Zaras", role: "Senior Python Engineer", photo: "/images/team/portrait-04.jpg" },
-  { name: "Benny Johansson", role: "VP of Engineering", photo: "/images/team/portrait-05.jpg" },
-  { name: "Divya Nautiyal", role: "Python Engineer", photo: "/images/team/portrait-06.jpg" },
-  { name: "Iason Rovis", role: "Senior Product Manager - Apps", photo: "/images/team/portrait-07.jpg" },
-  { name: "José Moreira-Sánchez", role: "Senior Cryptography Engineer", photo: "/images/team/portrait-08.jpg" },
-  { name: "Mariapia Moscatiello", role: "Research Scientist Coordinator", photo: "/images/team/portrait-09.jpg" },
-  { name: "Ojuswi Rastogi", role: "Senior Python Engineer", photo: "/images/team/portrait-10.jpg" },
-  { name: "Precious Joveres", role: "Junior Frontend Engineer", photo: "/images/team/portrait-11.jpg" },
-  { name: "Roman Semenchenko", role: "Product Designer", photo: "/images/team/portrait-12.jpg" },
-  { name: "Tanya Priemova", role: "Lead Frontend Engineer", photo: "/images/team/portrait-13.jpg" },
-  { name: "Victor Notaro", role: "Accounting & Operations Associate", photo: "/images/team/portrait-14.jpg" },
 ];
 
 export const investors = [

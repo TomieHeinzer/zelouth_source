@@ -135,7 +135,7 @@ export default function HomePage() {
       <section id="team" className="bg-blush">
         <div className="mx-auto max-w-screen-2xl px-6 py-12 md:px-12 lg:px-16">
           <h2 className="section-title mb-10 text-center">Team</h2>
-          <div className="grid grid-cols-1 gap-12 md:grid-cols-2 xl:grid-cols-3">
+          <div className="flex justify-center">
             {team.map((person) => (
               <article key={person.name} className="mx-auto flex w-full max-w-[380px] flex-col gap-4 text-sm">
                 <Portrait src={person.photo} alt={person.name} />
